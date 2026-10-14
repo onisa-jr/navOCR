@@ -1,2 +1,0 @@
-[console_scripts]
-navocr = navocr.cli:main

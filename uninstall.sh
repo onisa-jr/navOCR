@@ -6,7 +6,18 @@ echo "Uninstalling navOcr..."
 rm -f "$HOME/.local/bin/navocr"
 rm -f "$HOME/.local/share/applications/navocr.desktop"
 
-# Optional: Kill any running daemon
+# Restore default MATE screenshot handler if it was set to navocr
+if command -v gsettings >/dev/null 2>&1; then
+    if gsettings list-schemas | grep -q "org.mate.Marco"; then
+        cmd="$(gsettings get org.mate.Marco.keybinding-commands command-screenshot 2>/dev/null || true)"
+        if [[ "$cmd" == *"navocr"* ]]; then
+            gsettings set org.mate.Marco.keybinding-commands command-screenshot "mate-screenshot"
+            echo "[✓] Restored MATE PrintScreen key to default mate-screenshot."
+        fi
+    fi
+fi
+
+# Kill any running daemon
 pkill -f "navocr.cli daemon" 2>/dev/null || true
 rm -f "/tmp/navocr-$(id -u).sock" 2>/dev/null || true
 

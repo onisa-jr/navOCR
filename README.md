@@ -1,67 +1,121 @@
-# navOcr
+# navOcr 🔍
 
-![](asset/NavOCR.gif)
-**navOcr** is a lightweight, native-like screen text OCR utility for Debian Linux powered by the **IndraOCR** engine.
+**navOcr** is a fast, native-like screen text OCR utility for Debian and Linux desktop environments, powered by the **IndraOCR** CPU engine.
 
-It matches the **Apple Live Text** interaction model: activate with a shortcut, drag a box over your screen, and immediately interact with the captured image where recognized words are directly selectable on the image itself,
-
----
-
-## The Interaction Model
-
-1. **Capture Screen Region**:
-
-   - Activate via global shortcut (`Super + Shift + T`) or run `navocr capture`.
-   - Screen dims with crosshair cursor. Drag over any region and release.
-2. **Captured Image as Interface (Live Text)**:
-
-   - The captured screenshot is displayed directly in a compact floating viewer right where you captured it.
-   - OCR-detected words are mapped to their exact positions in the screenshot.
-   - Hovering over recognized words displays the text cursor (`I-beam`).
-   - Drag across words to select a single word, multiple words, full sentences, or paragraphs with a native-style highlight.
-   - Double-click to select an individual word.
-3. **Minimal Floating Icon Toolbar**:
-
-   - **Camera Icon (📷)**: Copies the captured screenshot directly to the system clipboard as an image (pasteable into chat, documents, image editors).
-   - **Copy Text Icon (📄)**: Copies the highlighted words/sentences (or all recognized text if none is selected).
-   - **Save Image Icon (💾)**: Saves the captured screenshot to `~/Pictures/Screenshots/`.
-   - **Select All Icon (Aa)**: Selects all recognized text across the document.
-   - **Close (✕)**: Dismisses the viewer and returns to your previous application.
-   - **Interactive Hover**: Hovering over any icon immediately displays the action word (e.g. `Copy Image`, `Copy Text`, `Save Image`) both in a native tooltip and in the status bar!
+It brings the fluid experience of **Apple Live Text** and **Google Lens** directly to the Linux desktop: press `PrintScreen`, drag a box over any area of your screen, and interact with the recognized text directly on the screenshot through continuous document-like text selection and optical neon illumination.
 
 ---
 
-## Installation
+## ✨ Features
+
+- **Live Text on Linux**: The captured screenshot remains as the high-resolution background; recognized text is selectable directly over the image.
+- **Continuous Document Selection**: Select text naturally across words, sentences, and paragraphs without breaking at word boundaries.
+- **Sub-100ms Inference**: Uses IndraOCR's in-memory ONNX CPU models for fast, private, offline OCR.
+- **Animated Optical Neon Shimmer**: Features an animated horizontal light sweep that illuminates recognized glyphs with an optical scanner aesthetic.
+- **Deep Elevation Shadow**: High-contrast 42px drop shadow and sleek 1.5px border ensures the viewer floats above identical desktop content.
+- **Sleek Minimal Toolbar**:
+  - 📷 **Copy Image**: Copies the raw screenshot PNG directly to the system clipboard.
+  - 📄 **Copy Text**: Copies highlighted words/sentences (or all text if none is selected).
+  - 💾 **Save Image**: Saves the captured screenshot to `~/Pictures/Screenshots/`.
+  - **Aa Select All**: Selects all recognized text across the document.
+  - **✕ Close**: Dismisses the capture immediately (or press `Esc`).
+- **Interactive Tooltips & Hover**: Hovering over any action icon displays the action name both in a floating tooltip and in the toolbar status bar.
+- **Global Shortcut**: Automatically binds to the `PrintScreen` key on MATE / Linux desktops.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
+
+Clone and install with the one-step installer:
 
 ```bash
-cd /home/onisajr/Documents/navOCR
+git clone https://github.com/onisajr/navOCR.git
+cd navOCR
 ./install.sh
+```
+
+The installer will:
+1. Register `navocr` into `~/.local/bin/navocr`.
+2. Install `navocr.desktop` into `~/.local/share/applications/`.
+3. Configure the **PrintScreen** key to trigger `navocr capture` on MATE desktop automatically.
+
+### 2. Verify Installation
+
+Run the self-test:
+
+```bash
+navocr test
 ```
 
 ---
 
-## Global Shortcut Configuration
+## ⌨️ Shortcut Configuration
 
-### On Debian MATE Desktop:
+### Automatic (MATE Desktop)
+During installation via `./install.sh`, the `PrintScreen` key is automatically mapped to `navocr capture` via `gsettings`.
 
-1. Open **System** > **Preferences** > **Hardware** > **Keyboard Shortcuts** (or run `mate-keybinding-properties`).
-2. Scroll to the bottom and click **Add**.
-3. Configure:
-   - **Name**: `navOcr Live Text`
-   - **Command**: `/home/onisajr/.local/bin/navocr capture`
-   - **Shortcut**: `Super + Shift + T`
+### Manual Configuration
 
-### On GNOME / KDE / XFCE / i3:
+If using another desktop environment, bind `navocr capture` to `PrintScreen`:
 
-Bind the command `navocr capture` to `Super + Shift + T` in your desktop environment's keyboard shortcuts.
+- **GNOME**:
+  1. Open **Settings** > **Keyboard** > **View and Customize Shortcuts** > **Custom Shortcuts**.
+  2. Click **+** and set:
+     - Name: `navOcr`
+     - Command: `navocr capture`
+     - Shortcut: `Print` (PrintScreen)
+
+- **XFCE**:
+  1. Open **Settings** > **Keyboard** > **Application Shortcuts**.
+  2. Add `navocr capture` and press `Print`.
+
+- **i3 / Sway**:
+  Add to your `~/.config/i3/config`:
+  ```text
+  bindsym Print exec --no-startup-id navocr capture
+  ```
 
 ---
 
-## CLI Commands
+## 🛠️ CLI Usage
 
-| Command            | Description                                                                |
-| ------------------ | -------------------------------------------------------------------------- |
-| `navocr capture` | Snips the screen and displays the captured image with selectable live text |
-| `navocr daemon`  | Runs the resident background listener for the global shortcut              |
-| `navocr test`    | Runs diagnostic self-test verifying IndraOCR and clipboard                 |
-| `navocr config`  | Shows current settings and configuration path                              |
+| Command | Action |
+|---|---|
+| `navocr capture` | Instantly snips screen and displays Live Text viewer |
+| `navocr daemon` | Runs background service listening for hotkey + system tray |
+| `navocr test` | Runs diagnostic self-test verifying IndraOCR and clipboard |
+| `navocr config` | Displays active configuration and path |
+
+---
+
+## ⚙️ Configuration
+
+Settings are saved in `~/.config/navocr/config.json`:
+
+```json
+{
+  "shortcut": "<print_screen>",
+  "shortcut_display": "PrintScreen",
+  "auto_copy": false,
+  "dim_opacity": 0.45,
+  "threads": 4,
+  "show_tray_icon": true
+}
+```
+
+---
+
+## 🗑️ Uninstallation
+
+```bash
+cd navOCR
+./uninstall.sh
+```
+
+---
+
+## 📄 License
+
+MIT License. Built with IndraOCR and PyQt5.

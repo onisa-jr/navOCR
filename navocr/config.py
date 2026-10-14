@@ -13,8 +13,8 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 @dataclass
 class AppConfig:
-    shortcut: str = "<cmd>+<shift>+t"  # Super+Shift+T (pynput format)
-    shortcut_display: str = "Super + Shift + T"
+    shortcut: str = "<print_screen>"  # PrintScreen key (pynput format)
+    shortcut_display: str = "PrintScreen"
     auto_copy: bool = False    # Auto-copy full recognized text on release
     dim_opacity: float = 0.45  # Overlay darkening factor (0.0 - 1.0)
     threads: int = 4           # IndraOCR inference threads
