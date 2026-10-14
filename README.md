@@ -1,4 +1,7 @@
 # navOcr 🔍
+<p align="center">
+  <img src="asset/NavOCR.gif" alt="navOcr demo"  />
+</p>
 
 **navOcr** is a fast, native-like screen text OCR utility for Debian and Linux desktop environments, powered by the **IndraOCR** CPU engine.
 
