@@ -71,7 +71,7 @@ def copy_image_to_clipboard(pil_image: Image.Image) -> bool:
             else:
                 conv_img = pil_image
             data = conv_img.tobytes("raw", "RGBA")
-            q_img = QImage(data, conv_img.width, conv_img.height, QImage.Format_RGBA8888)
+            q_img = QImage(data, conv_img.width, conv_img.height, QImage.Format_RGBA8888).copy()
             q_pix = QPixmap.fromImage(q_img)
 
             clipboard = app.clipboard()

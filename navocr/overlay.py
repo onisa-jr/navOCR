@@ -1,7 +1,8 @@
 """
 Fullscreen selection overlay for navOcr.
-Handles dimming, crosshair cursor, rubberband rectangular selection in any direction,
-dimension tooltip, instructions, and capture cropping.
+Captures a pristine, untouched screen grab BEFORE displaying the dimming overlay,
+ensuring the cropped region retains 100% pure monitor colors with zero dimming tint
+or selection border artifacts when copied or saved.
 """
 
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
@@ -44,22 +45,32 @@ class SelectionOverlay(QWidget):
         self.current_pos: Optional[QPoint] = None
         self.is_dragging = False
 
+        self.pristine_screen: Optional[Image.Image] = None
+        self.virtual_rect: QRect = QRect()
+
         self._calculate_desktop_geometry()
 
     def _calculate_desktop_geometry(self):
         """Calculates total virtual desktop bounding box across all monitors."""
         desktop = QApplication.desktop()
-        virtual_rect = desktop.geometry()
-        # Fallback to union of all screens if needed
+        self.virtual_rect = desktop.geometry()
         for i in range(desktop.screenCount()):
-            virtual_rect = virtual_rect.united(desktop.screenGeometry(i))
-        self.setGeometry(virtual_rect)
+            self.virtual_rect = self.virtual_rect.united(desktop.screenGeometry(i))
+        self.setGeometry(self.virtual_rect)
 
     def show_overlay(self):
         self._calculate_desktop_geometry()
         self.start_pos = None
         self.current_pos = None
         self.is_dragging = False
+
+        # 1. Grab pure, pristine screen pixels BEFORE overlay is rendered
+        # This guarantees 100% monitor-accurate colors with zero overlay tint or border lines
+        try:
+            self.pristine_screen = ImageGrab.grab()
+        except Exception:
+            self.pristine_screen = None
+
         self.show()
         self.raise_()
         self.activateWindow()
@@ -93,28 +104,45 @@ class SelectionOverlay(QWidget):
             self.is_dragging = False
             rect = self.get_selection_rect()
 
-            # Ignore tiny clicks / micro-drags
+            # Ignore tiny clicks / micro-drags (< 6px)
             if rect.width() < 6 or rect.height() < 6:
                 self.hide()
+                self.pristine_screen = None
                 self.cancelled.emit()
                 return
 
-            # Hide overlay immediately before capturing so the overlay lines aren't in the crop
             self.hide()
-            QApplication.processEvents()
 
-            # Perform high-speed in-memory screen grab
             x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+
+            # Crop directly from the pre-captured pristine screen
+            # Perfectly clean, zero green border bleed, zero dimming tint
             try:
-                # ImageGrab.grab takes bounding box (left, upper, right, lower)
-                crop_img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                if self.pristine_screen is not None:
+                    # Account for virtual monitor offset if negative
+                    offset_x = self.virtual_rect.x() if self.virtual_rect.x() < 0 else 0
+                    offset_y = self.virtual_rect.y() if self.virtual_rect.y() < 0 else 0
+
+                    crop_x0 = max(0, x - offset_x)
+                    crop_y0 = max(0, y - offset_y)
+                    crop_x1 = min(self.pristine_screen.width, crop_x0 + w)
+                    crop_y1 = min(self.pristine_screen.height, crop_y0 + h)
+
+                    crop_img = self.pristine_screen.crop((crop_x0, crop_y0, crop_x1, crop_y1))
+                else:
+                    QApplication.processEvents()
+                    crop_img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+
+                self.pristine_screen = None
                 self.capture_done.emit(crop_img, rect)
-            except Exception as e:
+            except Exception:
+                self.pristine_screen = None
                 self.cancelled.emit()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.is_dragging = False
+            self.pristine_screen = None
             self.hide()
             self.cancelled.emit()
         else:
@@ -137,8 +165,9 @@ class SelectionOverlay(QWidget):
             draw_path = full_path.subtracted(sel_path)
             painter.fillPath(draw_path, QBrush(dim_color))
 
-            # 2. Draw subtle selection fill and sharp accent border
-            painter.fillRect(sel_rect, QColor(74, 222, 128, 12))  # subtle 5% accent tint
+            # 2. Draw subtle selection accent border on screen during drag
+            # (Note: This border is NOT in the final crop because the crop is taken from pristine_screen!)
+            painter.fillRect(sel_rect, QColor(74, 222, 128, 10))
             pen = QPen(QColor(COLOR_ACCENT), 1.5)
             painter.setPen(pen)
             painter.drawRect(sel_rect)
@@ -150,7 +179,6 @@ class SelectionOverlay(QWidget):
             painter.setFont(font)
 
             badge_w, badge_h = 75, 20
-            # Place badge below selection or above if near bottom edge
             badge_x = sel_rect.x() + (sel_rect.width() - badge_w) // 2
             badge_y = sel_rect.y() + sel_rect.height() + 6
             if badge_y + badge_h > self.height() - 10:
@@ -170,7 +198,7 @@ class SelectionOverlay(QWidget):
         else:
             painter.fillPath(full_path, QBrush(dim_color))
 
-        # 4. Instruction Banner (unobtrusive pill at top center)
+        # 4. Instruction Banner (top center)
         hint_text = "Drag to capture  ·  Esc to cancel"
         font = QFont(FONT_FAMILY, 10)
         painter.setFont(font)
