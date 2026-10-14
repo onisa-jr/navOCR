@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# navOcr launcher script
+
+# Robust symlink resolution
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REAL_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+PROJECT_ROOT="$(cd -P "$REAL_DIR/.." >/dev/null 2>&1 && pwd)"
+
+# Detect python binary
+if [ -f "$HOME/envs/global/bin/python3" ]; then
+    PYTHON_BIN="$HOME/envs/global/bin/python3"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+else
+    echo "Error: python3 not found" >&2
+    exit 1
+fi
+
+# Ensure Qt platform plugins use system Qt5 rather than broken OpenCV plugins
+for p in "/usr/lib/x86_64-linux-gnu/qt5/plugins" "/usr/lib/qt5/plugins" "/usr/lib64/qt5/plugins"; do
+    if [ -f "$p/platforms/libqxcb.so" ]; then
+        export QT_QPA_PLATFORM_PLUGIN_PATH="$p"
+        break
+    fi
+done
+
+export HF_HUB_DISABLE_PROGRESS_BARS=1
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+
+exec "$PYTHON_BIN" -m navocr.cli "$@"

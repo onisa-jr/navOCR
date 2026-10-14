@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=navOcr
+Comment=Fast Native Live Screen OCR with IndraOCR
+Exec=/home/onisajr/.local/bin/navocr capture
+Icon=edit-find
+Terminal=false
+Type=Application
+Categories=Utility;Accessibility;Graphics;
+Keywords=ocr;text;capture;screenshot;indra;
+StartupNotify=false

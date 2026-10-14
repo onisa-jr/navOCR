@@ -1,0 +1,17 @@
+README.md
+setup.py
+navocr/__init__.py
+navocr/app.py
+navocr/cli.py
+navocr/clipboard.py
+navocr/config.py
+navocr/live_panel.py
+navocr/ocr_engine.py
+navocr/overlay.py
+navocr/shortcut.py
+navocr/theme.py
+navocr.egg-info/PKG-INFO
+navocr.egg-info/SOURCES.txt
+navocr.egg-info/dependency_links.txt
+navocr.egg-info/entry_points.txt
+navocr.egg-info/top_level.txt
