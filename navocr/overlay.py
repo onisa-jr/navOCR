@@ -6,7 +6,7 @@ or selection border artifacts when copied or saved.
 """
 
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
-from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath, QFont, QCursor
+from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath, QFont, QCursor, QPixmap, QImage
 from PyQt5.QtWidgets import QWidget, QApplication
 from PIL import ImageGrab, Image
 from typing import Optional
@@ -20,6 +20,16 @@ from navocr.theme import (
     COLOR_PANEL,
     FONT_FAMILY
 )
+
+
+def qpixmap_to_pil(pix: QPixmap) -> Image.Image:
+    """Converts a QPixmap to a PIL Image without disk overhead or format loss."""
+    q_img = pix.toImage().convertToFormat(QImage.Format_RGBA8888)
+    width = q_img.width()
+    height = q_img.height()
+    ptr = q_img.bits()
+    ptr.setsize(q_img.byteCount())
+    return Image.frombuffer("RGBA", (width, height), bytes(ptr), "raw", "RGBA", 0, 1)
 
 
 class SelectionOverlay(QWidget):
@@ -45,7 +55,7 @@ class SelectionOverlay(QWidget):
         self.current_pos: Optional[QPoint] = None
         self.is_dragging = False
 
-        self.pristine_screen: Optional[Image.Image] = None
+        self.pristine_pixmap: Optional[QPixmap] = None
         self.virtual_rect: QRect = QRect()
 
         self._calculate_desktop_geometry()
@@ -64,12 +74,16 @@ class SelectionOverlay(QWidget):
         self.current_pos = None
         self.is_dragging = False
 
-        # 1. Grab pure, pristine screen pixels BEFORE overlay is rendered
-        # This guarantees 100% monitor-accurate colors with zero overlay tint or border lines
+        # Grab pristine root screen pixels BEFORE overlay is rendered
+        # Guarantees 100% monitor-accurate colors and exact pixel geometry
         try:
-            self.pristine_screen = ImageGrab.grab()
+            screen = QApplication.primaryScreen()
+            if screen:
+                self.pristine_pixmap = screen.grabWindow(0)
+            else:
+                self.pristine_pixmap = None
         except Exception:
-            self.pristine_screen = None
+            self.pristine_pixmap = None
 
         self.show()
         self.raise_()
@@ -102,12 +116,13 @@ class SelectionOverlay(QWidget):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.is_dragging:
             self.is_dragging = False
+            self.current_pos = event.globalPos()
             rect = self.get_selection_rect()
 
             # Ignore tiny clicks / micro-drags (< 6px)
             if rect.width() < 6 or rect.height() < 6:
                 self.hide()
-                self.pristine_screen = None
+                self.pristine_pixmap = None
                 self.cancelled.emit()
                 return
 
@@ -116,33 +131,35 @@ class SelectionOverlay(QWidget):
             x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
 
             # Crop directly from the pre-captured pristine screen
-            # Perfectly clean, zero green border bleed, zero dimming tint
             try:
-                if self.pristine_screen is not None:
-                    # Account for virtual monitor offset if negative
+                if self.pristine_pixmap and not self.pristine_pixmap.isNull():
                     offset_x = self.virtual_rect.x() if self.virtual_rect.x() < 0 else 0
                     offset_y = self.virtual_rect.y() if self.virtual_rect.y() < 0 else 0
 
-                    crop_x0 = max(0, x - offset_x)
-                    crop_y0 = max(0, y - offset_y)
-                    crop_x1 = min(self.pristine_screen.width, crop_x0 + w)
-                    crop_y1 = min(self.pristine_screen.height, crop_y0 + h)
+                    crop_x = max(0, x - offset_x)
+                    crop_y = max(0, y - offset_y)
+                    crop_w = min(self.pristine_pixmap.width() - crop_x, w)
+                    crop_h = min(self.pristine_pixmap.height() - crop_y, h)
 
-                    crop_img = self.pristine_screen.crop((crop_x0, crop_y0, crop_x1, crop_y1))
+                    if crop_w > 0 and crop_h > 0:
+                        crop_pix = self.pristine_pixmap.copy(crop_x, crop_y, crop_w, crop_h)
+                        crop_img = qpixmap_to_pil(crop_pix)
+                    else:
+                        raise ValueError("Invalid crop bounds")
                 else:
                     QApplication.processEvents()
                     crop_img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
 
-                self.pristine_screen = None
+                self.pristine_pixmap = None
                 self.capture_done.emit(crop_img, rect)
             except Exception:
-                self.pristine_screen = None
+                self.pristine_pixmap = None
                 self.cancelled.emit()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.is_dragging = False
-            self.pristine_screen = None
+            self.pristine_pixmap = None
             self.hide()
             self.cancelled.emit()
         else:
